@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="nl" data-look="chique">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maandplanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a calm paper-toned month grid with a big serif month title, a slim day panel beside it, and colour-coded chips. */
+:root {
+  --bg: #f3f1ec;
+  --surface: #fbfaf7;
+  --ink: #1d1e22;
+  --muted: #7a7b82;
+  --line: #e4e1d9;
+  --accent: #e2502b;
+  --accent-ink: #ffffff;
+  --today-bg: #fdeee9;
+  --c0: #3b6fd4; --c1: #1f9d7a; --c2: #d98a1c; --c3: #d6455d; --c4: #7b6f64; --holiday: #b3261e; --holiday-ink: #ffffff;
+  --shadow: 0 1px 2px rgba(30,30,20,.05), 0 8px 30px rgba(30,30,20,.06);
+  --display: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --body: "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141517; --surface: #1c1d21; --ink: #ecebe6; --muted: #8d8e96; --line: #2c2d33;
+    --accent: #ff6a45; --accent-ink: #1a0d08; --today-bg: #2a1a15;
+    --c0: #6f9bf0; --c1: #43c29d; --c2: #eba73d; --c3: #f0718a; --c4: #a89a8c; --holiday: #ff8f85; --holiday-ink: #2b0a07;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 30px rgba(0,0,0,.35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141517; --surface: #1c1d21; --ink: #ecebe6; --muted: #8d8e96; --line: #2c2d33;
+  --accent: #ff6a45; --accent-ink: #1a0d08; --today-bg: #2a1a15;
+  --c0: #6f9bf0; --c1: #43c29d; --c2: #eba73d; --c3: #f0718a; --c4: #a89a8c; --holiday: #ff8f85; --holiday-ink: #2b0a07;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 30px rgba(0,0,0,.35);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.4; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; max-width: 1280px; margin: 0 auto; padding: 24px 20px; min-height: 100%; }
+
+.cal { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow); padding: 22px; display: flex; flex-direction: column; min-width: 0; }
+.head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+.title { font-family: var(--display); font-size: clamp(38px, 6vw, 60px); line-height: 1; margin: 0; letter-spacing: -.01em; text-transform: capitalize; text-wrap: balance; }
+.title span { color: var(--muted); font-style: italic; margin-left: 10px; }
+.tools { display: flex; gap: 8px; align-items: center; position: relative; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 8px 14px; font-weight: 600; transition: background .15s, border-color .15s; }
+.btn:hover { background: var(--bg); border-color: var(--muted); }
+.btn.icon { width: 38px; height: 38px; padding: 0; display: grid; place-items: center; font-size: 18px; line-height: 1; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.06); background: var(--accent); }
+
+.dow { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); margin-bottom: 6px; }
+.dow div { padding: 4px 8px; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+
+.grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; flex: 1; }
+.day { background: var(--surface); min-height: 112px; padding: 8px; display: flex; flex-direction: column; gap: 4px; text-align: left; border: 0; border-radius: 0; position: relative; min-width: 0; }
+.day:hover { background: var(--bg); }
+.day.out { background: color-mix(in srgb, var(--bg) 60%, var(--surface)); }
+.day.out .num { color: var(--muted); opacity: .55; }
+.day.sel::after { content: ""; position: absolute; inset: 0; box-shadow: inset 0 0 0 2px var(--ink); pointer-events: none; }
+.num { font-weight: 600; font-size: 14px; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; font-variant-numeric: tabular-nums; }
+.day.today .num { background: var(--accent); color: var(--accent-ink); }
+.chips { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.chip { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; padding: 3px 7px; border-radius: 6px; color: var(--ink); background: color-mix(in srgb, var(--cc) 16%, transparent); border-left: 3px solid var(--cc); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip.done { text-decoration: line-through; opacity: .5; }
+.chip .ct { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip time { margin-right: 2px; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 11.5px; }
+.more { font-size: 12px; color: var(--muted); font-weight: 600; padding-left: 4px; }
+.dots { display: none; gap: 3px; flex-wrap: wrap; }
+.dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--cc); }
+
+.day.marked { background: color-mix(in srgb, var(--dc) 18%, var(--surface)); }
+.day.marked:hover { background: color-mix(in srgb, var(--dc) 27%, var(--surface)); }
+.day.marked.out { background: color-mix(in srgb, var(--dc) 9%, var(--surface)); }
+.dtag { position: absolute; top: 10px; right: 8px; max-width: 60%; font-size: 11px; font-weight: 700; letter-spacing: .02em; color: color-mix(in srgb, var(--dc) 72%, var(--ink)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tlabel { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.types { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 18px; }
+.tpill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 5px 11px; font-size: 13px; font-weight: 500; }
+.tpill i { width: 10px; height: 10px; border-radius: 3px; background: var(--cc); }
+.tpill:hover { border-color: var(--muted); }
+.tpill.on { border-color: var(--cc); background: color-mix(in srgb, var(--cc) 20%, var(--surface)); font-weight: 700; }
+.tpill.edit { border-style: dashed; color: var(--muted); }
+.lgrp { display: flex; flex-wrap: wrap; gap: 6px 14px; width: 100%; }
+.lgrp + .lgrp { margin-top: 12px; }
+.lgrp b { width: 100%; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink); }
+.trow { display: grid; grid-template-columns: 44px 1fr auto; gap: 8px; align-items: center; }
+.trow input[type=color] { width: 44px; height: 40px; padding: 2px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); cursor: pointer; }
+#typeRows { display: flex; flex-direction: column; gap: 8px; }
+form .sub { margin: -6px 0 0; color: var(--muted); font-size: 13.5px; }
+.menu { position: absolute; right: 0; top: 46px; z-index: 10; min-width: 250px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 6px; display: flex; flex-direction: column; }
+.menu button { text-align: left; border: 0; background: none; padding: 10px 12px; border-radius: 8px; font-weight: 500; }
+.menu button:hover { background: var(--bg); }
+.thint { width: 100%; font-size: 12.5px; color: var(--muted); }
+.plist { margin-bottom: 12px; }
+.item .t small { display: block; }
+.panel .btn.wide { width: 100%; padding: 10px; }
+.chip.hol { font-weight: 700; }
+.chip.hol-off { background: var(--holiday); color: var(--holiday-ink); border-left: 0; padding-left: 7px; }
+.chip.hol-extra { background: transparent; border: 1px dashed var(--muted); color: var(--muted); font-style: italic; font-weight: 500; }
+.day.holiday:not(.today) .num { color: var(--holiday); font-weight: 800; }
+.hols { margin: 0 0 14px; display: flex; flex-direction: column; gap: 6px; }
+.holitem { padding: 10px 12px; border-radius: 12px; font-weight: 700; }
+.holitem small { display: block; font-weight: 500; opacity: .85; }
+.holitem.off { background: var(--holiday); color: var(--holiday-ink); }
+.holitem.x { border: 1px dashed var(--muted); color: var(--ink); font-style: italic; font-weight: 600; }
+.lgrp .k-off i { background: var(--holiday); }
+.lgrp .k-x i { background: transparent; border: 1px dashed var(--muted); }
+.side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow); padding: 20px; }
+.panel h2 { font-family: var(--display); font-weight: 400; font-size: 30px; line-height: 1.05; margin: 0 0 4px; text-transform: capitalize; }
+.panel .sub { color: var(--muted); margin: 0 0 16px; font-size: 13.5px; }
+.list { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); border-left: 4px solid var(--cc); }
+.item .t { flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 0; }
+.item .t b { display: block; font-weight: 600; overflow-wrap: anywhere; }
+.item .t small { color: var(--muted); }
+.item.done .t b { text-decoration: line-through; opacity: .5; }
+.check { width: 22px; height: 22px; accent-color: var(--accent); flex: none; cursor: pointer; }
+.empty { color: var(--muted); padding: 14px; border: 1px dashed var(--line); border-radius: 12px; text-align: center; margin: 0 0 16px; }
+.panel .btn.primary { width: 100%; padding: 11px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 10px; border-radius: 3px; background: var(--cc); }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stat { background: var(--bg); border-radius: 12px; padding: 12px; }
+.stat b { font-family: var(--display); font-weight: 400; font-size: 34px; line-height: 1; display: block; font-variant-numeric: tabular-nums; }
+.stat small { color: var(--muted); font-size: 12.5px; }
+
+[hidden] { display: none !important; }
+.sync { margin: 0; padding: 0 6px; font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.sync::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.sync[data-state="ok"]::before { background: var(--c1); }
+.sync[data-state="busy"]::before { background: var(--c2); }
+.sync[data-state="off"]::before { background: var(--c3); }
+.chip .rep { font-size: 12px; opacity: .7; }
+.banner { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--today-bg); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); border-radius: 12px; padding: 10px 12px; font-size: 13.5px; }
+.banner .btn { padding: 5px 10px; font-size: 13px; flex: none; }
+
+dialog { border: 1px solid var(--line); border-radius: 20px; background: var(--surface); color: var(--ink); padding: 0; width: min(440px, calc(100% - 32px)); box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+dialog::backdrop { background: rgba(20,20,25,.45); }
+form { padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+form h3 { font-family: var(--display); font-weight: 400; font-size: 30px; margin: 0; }
+label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; font-weight: 600; color: var(--muted); }
+input[type=text], input[type=date], input[type=time], select { border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 10px 12px; color: var(--ink); font-weight: 500; width: 100%; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cats { display: flex; flex-wrap: wrap; gap: 8px; }
+.cats input { position: absolute; opacity: 0; pointer-events: none; }
+.cats label { flex-direction: row; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; color: var(--ink); font-weight: 500; }
+.cats label i { width: 10px; height: 10px; border-radius: 50%; background: var(--cc); }
+.cats input:checked + label { border-color: var(--cc); background: color-mix(in srgb, var(--cc) 16%, transparent); }
+.cats input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 2px; }
+.actions { display: flex; gap: 8px; justify-content: space-between; margin-top: 4px; }
+.actions .right { display: flex; gap: 8px; }
+.btn.danger { color: var(--c3); }
+
+@media (max-width: 980px) {
+  .app { grid-template-columns: minmax(0, 1fr); padding: 12px; }
+  .side { order: 2; }
+}
+@media (max-width: 640px) {
+  .cal { padding: 14px; border-radius: 16px; }
+  .day { min-height: 96px; padding: 4px 3px; overflow: hidden; gap: 2px; }
+  .num { width: 22px; height: 22px; font-size: 12.5px; margin-left: 1px; }
+  .chips { gap: 2px; }
+  .chip { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; white-space: normal; overflow: hidden; overflow-wrap: anywhere; font-size: 10.5px; line-height: 1.2; padding: 2px 3px; border-left-width: 2px; border-radius: 4px; }
+  .chip time, .chip .rep { display: none; }
+  .more { font-size: 10px; padding-left: 2px; }
+  .dots { display: none; }
+  .dtag { display: none; }
+  .dow div { padding: 4px 0; text-align: center; font-size: 11px; letter-spacing: .02em; }
+  .title span { display: block; margin: 4px 0 0; font-size: .5em; }
+}
+
+/* Settings dialog */
+.setrow { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.setrow:last-of-type { border-bottom: 0; }
+.setrow b { display: block; font-weight: 600; color: var(--ink); }
+.setrow small { color: var(--muted); font-size: 13px; font-weight: 400; }
+.setrow input[type=checkbox] { width: 42px; height: 24px; accent-color: var(--accent); flex: none; cursor: pointer; }
+.setrow select { width: auto; min-width: 150px; }
+.setrow label { flex-direction: column; gap: 2px; font-size: inherit; color: inherit; flex: 1; cursor: pointer; }
+
+/* ===== Look: chique ===== */
+html[data-look="chique"] {
+  --bg: #f4f2ed; --surface: #fffefb; --ink: #17181c; --muted: #8c8a83; --line: #e9e5db;
+  --accent: #17181c; --accent-ink: #fffefb; --today-bg: #f6efe6;
+  --c0: #4f6fc9; --c1: #2f9477; --c2: #c88a2a; --c3: #c85a6d; --c4: #8b8378;
+  --shadow: 0 1px 2px rgba(20,20,10,.04);
+}
+@media (prefers-color-scheme: dark) {
+  html[data-look="chique"]:not([data-theme="light"]) {
+    --bg: #111214; --surface: #18191c; --ink: #efede8; --muted: #8e8c86; --line: #26272b;
+    --accent: #efede8; --accent-ink: #111214; --today-bg: #241c18;
+    --c0: #86a2ee; --c1: #59c0a2; --c2: #e2b05c; --c3: #e68a9a; --c4: #b3aa9d;
+    --shadow: none;
+  }
+}
+html[data-look="chique"][data-theme="dark"] {
+  --bg: #111214; --surface: #18191c; --ink: #efede8; --muted: #8e8c86; --line: #26272b;
+  --accent: #efede8; --accent-ink: #111214; --today-bg: #241c18;
+  --c0: #86a2ee; --c1: #59c0a2; --c2: #e2b05c; --c3: #e68a9a; --c4: #b3aa9d;
+  --shadow: none;
+}
+html[data-look="chique"] body { font-size: 14.5px; }
+html[data-look="chique"] .app { max-width: 1320px; gap: 28px; padding: 36px 32px; grid-template-columns: minmax(0, 1fr) 304px; }
+html[data-look="chique"] .cal { border-radius: 22px; padding: 30px 32px 28px; box-shadow: var(--shadow); }
+html[data-look="chique"] .head { align-items: center; margin-bottom: 26px; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+html[data-look="chique"] .title { font-size: clamp(44px, 6vw, 74px); letter-spacing: -.025em; }
+html[data-look="chique"] .title span { font-size: .46em; margin-left: 14px; letter-spacing: .02em; }
+html[data-look="chique"] .btn { background: transparent; font-weight: 500; font-size: 13.5px; padding: 8px 16px; }
+html[data-look="chique"] .btn:hover { background: var(--bg); border-color: var(--muted); }
+html[data-look="chique"] .btn.icon { width: 36px; height: 36px; padding: 0; }
+html[data-look="chique"] .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+html[data-look="chique"] .btn.primary:hover { background: var(--accent); filter: opacity(.88); }
+html[data-look="chique"] .dow div { font-size: 11px; letter-spacing: .16em; padding: 0 12px 12px; }
+html[data-look="chique"] .grid { border-radius: 14px; }
+html[data-look="chique"] .day { padding: 10px 11px 8px; min-height: 120px; gap: 6px; }
+html[data-look="chique"] .num { font-size: 13px; font-weight: 500; }
+html[data-look="chique"] .day.today .num { font-weight: 700; }
+html[data-look="chique"] .day.sel::after { box-shadow: inset 0 0 0 1.5px var(--ink); }
+html[data-look="chique"] .chips { gap: 1px; }
+html[data-look="chique"] .chip { position: relative; background: transparent; border-left: 0; border-radius: 0; padding: 2px 0 2px 13px; font-size: 12px; font-weight: 500; }
+html[data-look="chique"] .chip::before { content: ""; position: absolute; left: 2px; top: 50%; width: 6px; height: 6px; border-radius: 50%; background: var(--cc); transform: translateY(-50%); }
+html[data-look="chique"] .chip { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; white-space: normal; overflow: hidden; overflow-wrap: break-word; hyphens: auto; line-height: 1.3; font-size: 12px; }
+html[data-look="chique"] .chip .ct { display: inline; white-space: normal; overflow: visible; }
+html[data-look="chique"] .chip.hol { padding: 3px 8px; border-radius: 6px; }
+html[data-look="chique"] .chip.hol::before { display: none; }
+html[data-look="chique"] .chip.hol-off { background: var(--holiday); }
+html[data-look="chique"] .chip.hol-extra { padding: 2px 8px; }
+html[data-look="chique"] .more { padding-left: 14px; font-weight: 500; }
+html[data-look="chique"] .day.marked { background: color-mix(in srgb, var(--dc) 12%, var(--surface)); }
+html[data-look="chique"] .day.marked:hover { background: color-mix(in srgb, var(--dc) 20%, var(--surface)); }
+html[data-look="chique"] .day.marked.out { background: color-mix(in srgb, var(--dc) 6%, var(--surface)); }
+html[data-look="chique"] .dtag { top: 13px; right: 11px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+html[data-look="chique"] .side { gap: 14px; }
+html[data-look="chique"] .panel { border-radius: 20px; padding: 24px; box-shadow: var(--shadow); }
+html[data-look="chique"] .panel h2 { font-size: 36px; }
+html[data-look="chique"] .panel .sub { margin-bottom: 20px; }
+html[data-look="chique"] .tlabel { font-size: 11px; letter-spacing: .16em; }
+html[data-look="chique"] .item { background: transparent; border-radius: 12px; }
+html[data-look="chique"] .tpill { background: transparent; }
+html[data-look="chique"] .tpill.on { background: color-mix(in srgb, var(--cc) 14%, var(--surface)); }
+html[data-look="chique"] .stat { background: var(--bg); border-radius: 14px; }
+html[data-look="chique"] .lgrp b { font-size: 11px; letter-spacing: .16em; color: var(--muted); }
+html[data-look="chique"] dialog { border-radius: 22px; }
+html[data-look="chique"] form h3 { font-size: 34px; }
+html[data-look="chique"] input[type=text], html[data-look="chique"] input[type=date], html[data-look="chique"] input[type=time], html[data-look="chique"] select { border-radius: 12px; }
+html[data-look="chique"] .menu { border-radius: 16px; padding: 8px; }
+@media (max-width: 980px) {
+  html[data-look="chique"] .app { grid-template-columns: minmax(0, 1fr); padding: 10px 8px; gap: 14px; }
+}
+@media (max-width: 640px) {
+  html[data-look="chique"] .cal { padding: 16px 6px 10px; border-radius: 18px; }
+  html[data-look="chique"] .head { margin: 0 8px 14px; padding-bottom: 14px; }
+  html[data-look="chique"] .day { min-height: 96px; padding: 5px 2px; }
+  html[data-look="chique"] .chip { padding: 1px 2px; font-size: 9.5px; line-height: 1.2; hyphens: auto; border-radius: 3px; background: color-mix(in srgb, var(--cc) 16%, transparent); }
+  html[data-look="chique"] .chip::before { display: none; }
+  html[data-look="chique"] .chip.hol-off { background: var(--holiday); }
+  html[data-look="chique"] .chip.hol-extra { background: transparent; }
+  html[data-look="chique"] .chip.hol { padding: 2px 3px; }
+  html[data-look="chique"] .more { padding-left: 2px; }
+  html[data-look="chique"] .dow div { padding: 0 0 8px; letter-spacing: .06em; }
+  html[data-look="chique"] .panel { padding: 20px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <main class="cal" aria-label="Maandoverzicht">
+    <div class="head">
+      <h1 class="title" id="title"></h1>
+      <div class="tools">
+        <button class="btn icon" id="prev" aria-label="Vorige maand">&#8249;</button>
+        <button class="btn" id="today">Vandaag</button>
+        <button class="btn icon" id="next" aria-label="Volgende maand">&#8250;</button>
+        <button class="btn primary" id="newTop">Nieuw</button>
+        <button class="btn icon" id="menuBtn" aria-label="Meer opties" aria-haspopup="true" aria-expanded="false">&#8943;</button>
+        <div class="menu" id="menu" hidden>
+          <button type="button" id="mPeriod">Periode kleuren</button>
+          <button type="button" id="mTypes">Soorten dagen aanpassen</button>
+          <button type="button" id="mSettings">Instellingen</button>
+          <button type="button" id="mClear">Voorbeelden wissen</button>
+        </div>
+      </div>
+    </div>
+    <div class="dow" id="dow"></div>
+    <div class="grid" id="grid"></div>
+  </main>
+
+  <aside class="side">
+    <section class="panel" aria-live="polite">
+      <h2 id="dayTitle"></h2>
+      <p class="sub" id="daySub"></p>
+      <div class="hols" id="holRow"></div>
+      <div class="tlabel">Soort dag</div>
+      <div class="types" id="typesRow"></div>
+      <ul class="list" id="dayList"></ul>
+      <button class="btn primary" id="addDay">Toevoegen op deze dag</button>
+    </section>
+    <section class="panel">
+      <div class="tlabel">Periodes</div>
+      <ul class="list plist" id="periodList"></ul>
+      <p class="empty plist" id="periodEmpty">Kleur meerdere dagen tegelijk, bijvoorbeeld een vakantie.</p>
+      <button class="btn wide" id="addPeriod">Periode kleuren</button>
+    </section>
+    <section class="panel">
+      <div class="stats">
+        <div class="stat"><b id="sTotal">0</b><small>items deze maand</small></div>
+        <div class="stat"><b id="sDone">0</b><small>afgerond</small></div>
+      </div>
+    </section>
+    <section class="panel"><div class="legend" id="legend"></div></section>
+    <p class="sync" id="sync" data-state="local">Opgeslagen op dit apparaat</p>
+    <div class="banner" id="banner" hidden>
+      <span>Dit zijn voorbeelden om te zien hoe het werkt.</span>
+      <button class="btn" id="clearSamples">Wissen</button>
+    </div>
+  </aside>
+</div>
+
+<dialog id="dlgSettings">
+  <form id="sForm" method="dialog">
+    <h3>Instellingen</h3>
+    <div>
+      <div class="setrow">
+        <label for="sHol"><b>Feestdagen</b><small>Officiële Nederlandse feestdagen in rood. Vast, niet aanpasbaar.</small></label>
+        <input type="checkbox" id="sHol">
+      </div>
+      <div class="setrow">
+        <label for="sExtra"><b>Bekende dagen</b><small>Moederdag, Vaderdag, Sinterklaasavond, Prinsjesdag, Valentijnsdag, Dodenherdenking, Oudejaarsavond en de zomertijd.</small></label>
+        <input type="checkbox" id="sExtra">
+      </div>
+      <div class="setrow">
+        <label for="sLook"><b>Stijl</b><small>Wissel terug naar de oorspronkelijke stijl als je die mooier vindt.</small></label>
+        <select id="sLook">
+          <option value="chique">Chique</option>
+          <option value="klassiek">Oorspronkelijk</option>
+        </select>
+      </div>
+    </div>
+    <div class="actions" style="justify-content:flex-end">
+      <button type="button" class="btn primary" id="sDone">Klaar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgPeriod">
+  <form id="pForm" method="dialog">
+    <h3 id="pTitle">Periode kleuren</h3>
+    <label for="pName">Naam (optioneel)
+      <input type="text" id="pName" maxlength="40" placeholder="Bijvoorbeeld: Zomervakantie">
+    </label>
+    <label for="pType">Soort dag
+      <select id="pType"></select>
+    </label>
+    <div class="row">
+      <label for="pStart">Van <input type="date" id="pStart" required></label>
+      <label for="pEnd">Tot en met <input type="date" id="pEnd" required></label>
+    </div>
+    <div class="row">
+      <label for="pRepeat">Herhalen
+        <select id="pRepeat">
+          <option value="none">Niet herhalen</option>
+          <option value="weekly">Elke week</option>
+          <option value="biweekly">Elke 2 weken</option>
+          <option value="monthly">Elke maand</option>
+          <option value="yearly">Elk jaar</option>
+        </select>
+      </label>
+      <label for="pUntil" id="pUntilWrap" hidden>Herhalen tot (optioneel) <input type="date" id="pUntil"></label>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn danger" id="pDelete">Verwijderen</button>
+      <div class="right">
+        <button type="button" class="btn" id="pCancel">Annuleren</button>
+        <button type="submit" class="btn primary">Opslaan</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgTypes">
+  <form id="tForm" method="dialog">
+    <h3>Soorten dagen</h3>
+    <p class="sub">Geef een hele dag een kleur, bijvoorbeeld voor vrije dagen of drukke dagen. Pas hier de namen en kleuren aan.</p>
+    <div id="typeRows"></div>
+    <button type="button" class="btn" id="tAdd">Soort toevoegen</button>
+    <div class="actions">
+      <button type="button" class="btn" id="tCancel">Annuleren</button>
+      <button type="button" class="btn primary" id="tDone">Klaar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg">
+  <form id="form" method="dialog">
+    <h3 id="dlgTitle">Nieuw item</h3>
+    <label for="fTitle">Titel
+      <input type="text" id="fTitle" required maxlength="80" placeholder="Bijvoorbeeld: Tandarts">
+    </label>
+    <div class="row">
+      <label for="fDate">Datum <input type="date" id="fDate" required></label>
+      <label for="fTime">Tijd (optioneel) <input type="time" id="fTime"></label>
+    </div>
+    <div class="row">
+      <label for="fRepeat">Herhalen
+        <select id="fRepeat">
+          <option value="none">Niet herhalen</option>
+          <option value="daily">Elke dag</option>
+          <option value="weekly">Elke week</option>
+          <option value="biweekly">Elke 2 weken</option>
+          <option value="monthly">Elke maand</option>
+          <option value="yearly">Elk jaar</option>
+        </select>
+      </label>
+      <label for="fUntil" id="untilWrap" hidden>Tot en met (optioneel) <input type="date" id="fUntil"></label>
+    </div>
+    <div>
+      <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:6px">Categorie</div>
+      <div class="cats" id="cats"></div>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn danger" id="fDelete">Verwijderen</button>
+      <div class="right">
+        <button type="button" class="btn" id="fCancel">Annuleren</button>
+        <button type="submit" class="btn primary">Opslaan</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  var CATS = [
+    { id: 0, name: "Werk" }, { id: 1, name: "Studie" }, { id: 2, name: "Privé" },
+    { id: 3, name: "Sport" }, { id: 4, name: "Overig" }
+  ];
+  var KEY = "maandplanner-v1";
+  var REPEATS = { none: "", daily: "Elke dag", weekly: "Elke week", biweekly: "Elke 2 weken", monthly: "Elke maand", yearly: "Elk jaar" };
+  var $ = function (id) { return document.getElementById(id); };
+
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function iso(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function parse(s) { var p = s.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function uid() { return Math.random().toString(36).slice(2, 10); }
+
+  var now = new Date();
+  var todayIso = iso(now);
+  var view = { y: now.getFullYear(), m: now.getMonth() };
+  var selected = todayIso;
+  var DEFAULT_TYPES = [
+    { id: "t1", name: "Vrij", color: "#1f9d7a" },
+    { id: "t2", name: "Drukke dag", color: "#d6455d" },
+    { id: "t3", name: "Toets", color: "#d98a1c" },
+    { id: "t4", name: "Thuiswerken", color: "#3b6fd4" }
+  ];
+  var dayTypes = JSON.parse(JSON.stringify(DEFAULT_TYPES));
+  var marks = {};
+  var periods = [];
+  var settings = { holidays: true, extras: false, look: "chique" };
+  var events = load();
+  function state() { return { events: events, dayTypes: dayTypes, marks: marks, periods: periods, settings: settings }; }
+  function typeById(id) { for (var i = 0; i < dayTypes.length; i++) if (dayTypes[i].id === id) return dayTypes[i]; return null; }
+  function applyState(v) {
+    if (Array.isArray(v)) { events = v; return; }
+    if (v && Array.isArray(v.events)) events = v.events;
+    if (v && Array.isArray(v.dayTypes) && v.dayTypes.length) dayTypes = v.dayTypes;
+    if (v && v.marks && typeof v.marks === "object") marks = v.marks;
+    if (v && Array.isArray(v.periods)) periods = v.periods;
+    if (v && v.settings && typeof v.settings === "object") settings = { holidays: v.settings.holidays !== false, extras: !!v.settings.extras, look: v.settings.look === "klassiek" ? "klassiek" : "chique" };
+  }
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw) { var v = JSON.parse(raw); if (Array.isArray(v)) return v; if (v && Array.isArray(v.events)) { applyState(v); return events; } }
+    } catch (e) {}
+    return samples();
+  }
+  var remote = null, dirty = false, writing = false, queued = false, timer = null, localPending = false;
+  function setSync(st) {
+    var m = { local: "Opgeslagen op dit apparaat", ok: "Gesynchroniseerd tussen je apparaten", busy: "Opslaan...", off: "Synchronisatie niet bereikbaar. Wijzigingen blijven op dit apparaat." };
+    var n = $("sync"); if (!n) return;
+    n.textContent = m[st] || ""; n.dataset.state = st;
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state())); } catch (e) {}
+    if (!remote) { dirty = true; return; }
+    localPending = true; setSync("busy");
+    clearTimeout(timer); timer = setTimeout(push, 600);
+  }
+  function push() {
+    if (!remote) return;
+    if (writing) { queued = true; return; }
+    writing = true;
+    var ok = true;
+    remote.set(JSON.parse(JSON.stringify(state())))
+      .then(function () {}, function () { ok = false; })
+      .then(function () {
+        writing = false;
+        if (queued) { queued = false; push(); return; }
+        localPending = false; setSync(ok ? "ok" : "off");
+      });
+  }
+  function initSync() {
+    if (!window.claude || !window.claude.use) return;
+    var timeout = setTimeout(function () { setSync("off"); }, 10000);
+    Promise.all([window.claude.use("db"), window.claude.use("user")]).then(function (r) {
+      var db = r[0], user = r[1];
+      if (!db || !user || !user.id) { clearTimeout(timeout); setSync("local"); return; }
+      return user.id().then(function (id) {
+        if (!id) { clearTimeout(timeout); setSync("local"); return; }
+        var ref = db.doc("data/users/" + id + "/planner");
+        var first = true;
+        ref.onSnapshot(function (snap) {
+          if (snap.metadata && snap.metadata.fromCache) return;
+          clearTimeout(timeout);
+          var data = snap.exists ? snap.data() : null;
+          if (first) {
+            first = false; remote = ref;
+            var realLocal = events.some(function (e) { return !e.sample; }) || Object.keys(marks).length > 0 || periods.length > 0;
+            if (dirty || (!data && realLocal)) { dirty = false; localPending = true; setSync("busy"); push(); return; }
+          }
+          if (localPending) return;
+          if (data && Array.isArray(data.events)) {
+            var before = JSON.stringify(state());
+            applyState(JSON.parse(JSON.stringify(data)));
+            if (JSON.stringify(state()) !== before) {
+              try { localStorage.setItem(KEY, JSON.stringify(state())); } catch (e) {}
+              renderAll();
+            }
+          }
+          setSync("ok");
+        }, function () { clearTimeout(timeout); setSync("off"); });
+      });
+    }).catch(function () { clearTimeout(timeout); setSync("off"); });
+  }
+
+  function samples() {
+    var y = now.getFullYear(), m = now.getMonth();
+    function d(day) { return iso(new Date(y, m, day)); }
+    var t = now.getDate();
+    var list = [
+      ["Weekplanning maken", t, "09:00", 0],
+      ["Tentamen leren", Math.min(t + 2, 28), "", 1],
+      ["Sporten", Math.min(t + 1, 28), "18:30", 3, "weekly"],
+      ["Verjaardag Sanne", Math.min(t + 4, 28), "", 2],
+      ["Presentatie voorbereiden", Math.min(t + 4, 28), "14:00", 0],
+      ["Boodschappen", Math.min(t + 6, 28), "", 4],
+      ["Inleveren opdracht", Math.min(t + 9, 28), "23:59", 1],
+      ["Hardlopen", Math.max(t - 3, 1), "07:30", 3]
+    ];
+    return list.map(function (x) { return { id: uid(), title: x[0], date: d(x[1]), time: x[2], cat: x[3], done: false, sample: true, repeat: x[4] || "none" }; });
+  }
+
+  function dayNum(s) { var p = s.split("-"); return Math.round(Date.UTC(+p[0], +p[1] - 1, +p[2]) / 864e5); }
+  function occursOn(e, di) {
+    if (di < e.date) return false;
+    if (e.until && di > e.until) return false;
+    var r = e.repeat || "none";
+    if (r === "none") return di === e.date;
+    if (r === "daily") return true;
+    var diff = dayNum(di) - dayNum(e.date);
+    if (r === "weekly") return diff % 7 === 0;
+    if (r === "biweekly") return diff % 14 === 0;
+    var a = e.date.split("-"), b = di.split("-");
+    var dim = new Date(+b[0], +b[1], 0).getDate();
+    if (r === "monthly") return +b[2] === Math.min(+a[2], dim);
+    if (r === "yearly") return +a[1] === +b[1] && +b[2] === Math.min(+a[2], dim);
+    return false;
+  }
+  function isRep(e) { return e.repeat && e.repeat !== "none"; }
+  function isDone(e, di) { return isRep(e) ? (e.doneDates || []).indexOf(di) > -1 : !!e.done; }
+  function setDone(e, di, v) {
+    if (isRep(e)) {
+      var l = (e.doneDates || []).filter(function (x) { return x !== di; });
+      if (v) l.push(di);
+      e.doneDates = l;
+    } else { e.done = v; }
+  }
+  function byDate(dateIso) {
+    return events.filter(function (e) { return occursOn(e, dateIso); })
+      .sort(function (a, b) { return (a.time || "99:99").localeCompare(b.time || "99:99") || a.title.localeCompare(b.title); });
+  }
+
+  /* weekday header, Monday first */
+  var dowNames = ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"];
+  $("dow").innerHTML = dowNames.map(function (n) { return "<div>" + n + "</div>"; }).join("");
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function renderGrid() {
+    var first = new Date(view.y, view.m, 1);
+    var offset = (first.getDay() + 6) % 7;
+    var dim = new Date(view.y, view.m + 1, 0).getDate();
+    var weeks = Math.ceil((offset + dim) / 7);
+    var start = new Date(view.y, view.m, 1 - offset);
+    var g = $("grid");
+    g.innerHTML = "";
+    g.style.gridTemplateRows = "repeat(" + weeks + ", minmax(0, 1fr))";
+
+    for (var i = 0; i < weeks * 7; i++) {
+      var d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+      var di = iso(d);
+      var evs = byDate(di);
+      var b = el("button", "day");
+      b.type = "button";
+      b.dataset.date = di;
+      if (d.getMonth() !== view.m) b.classList.add("out");
+      if (di === todayIso) b.classList.add("today");
+      if (di === selected) b.classList.add("sel");
+      b.setAttribute("aria-label", d.toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long" }) + (evs.length ? ", " + evs.length + " items" : ""));
+
+      b.appendChild(el("span", "num", d.getDate()));
+      var ef = effective(di);
+      if (ef) {
+        b.classList.add("marked");
+        b.style.setProperty("--dc", ef.type.color);
+        b.appendChild(el("span", "dtag", ef.label));
+        b.setAttribute("aria-label", b.getAttribute("aria-label") + ", " + ef.label);
+      }
+
+      var chips = el("div", "chips");
+      var hol = holidayOn(di);
+      hol.forEach(function (h) {
+        var hc = el("div", "chip hol " + (h.kind === "official" ? "hol-off" : "hol-extra"), h.name);
+        hc.title = h.kind === "official" ? "Officiële feestdag" : "Bekende dag";
+        chips.appendChild(hc);
+      });
+      if (hol.some(function (h) { return h.kind === "official"; })) b.classList.add("holiday");
+      if (hol.length) b.setAttribute("aria-label", b.getAttribute("aria-label") + ", " + hol.map(function (h) { return h.name; }).join(", "));
+      var userMax = Math.max(1, 3 - hol.length);
+      evs.slice(0, userMax).forEach(function (e) {
+        var c = el("div", "chip" + (isDone(e, di) ? " done" : ""));
+        c.style.setProperty("--cc", "var(--c" + e.cat + ")");
+        var ct = el("span", "ct");
+        if (isRep(e)) ct.appendChild(el("span", "rep", "\u21bb "));
+        if (e.time) ct.appendChild(el("time", "", e.time + " "));
+        ct.appendChild(document.createTextNode(e.title));
+        c.appendChild(ct);
+        chips.appendChild(c);
+      });
+      if (evs.length > userMax) chips.appendChild(el("div", "more", "+" + (evs.length - userMax) + " meer"));
+      b.appendChild(chips);
+
+      var dots = el("div", "dots");
+      evs.slice(0, 6).forEach(function (e) {
+        var s = el("i"); s.style.setProperty("--cc", "var(--c" + e.cat + ")"); dots.appendChild(s);
+      });
+      b.appendChild(dots);
+      g.appendChild(b);
+    }
+
+    var monthName = new Date(view.y, view.m, 1).toLocaleDateString("nl-NL", { month: "long" });
+    $("title").innerHTML = "";
+    $("title").appendChild(document.createTextNode(monthName));
+    $("title").appendChild(el("span", "", String(view.y)));
+    document.title = "Maandplanner · " + monthName + " " + view.y;
+
+    var total = 0, doneCount = 0;
+    for (var k = 1; k <= dim; k++) {
+      var dk = view.y + "-" + pad(view.m + 1) + "-" + pad(k);
+      byDate(dk).forEach(function (e) { total++; if (isDone(e, dk)) doneCount++; });
+    }
+    $("sTotal").textContent = total;
+    $("sDone").textContent = doneCount;
+  }
+
+  function renderDay() {
+    var d = parse(selected);
+    var hr = $("holRow"); hr.innerHTML = "";
+    holidayOn(selected).forEach(function (h) {
+      var o = h.kind === "official";
+      var n = el("div", "holitem " + (o ? "off" : "x"));
+      n.appendChild(document.createTextNode(h.name));
+      n.appendChild(el("small", "", o ? "Officiële feestdag · vast, kun je niet aanpassen" : "Bekende dag · vast, kun je niet aanpassen"));
+      hr.appendChild(n);
+    });
+    $("dayTitle").textContent = d.toLocaleDateString("nl-NL", { weekday: "long" });
+    $("daySub").textContent = d.toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" }) + (selected === todayIso ? " · vandaag" : "");
+    var ul = $("dayList");
+    ul.innerHTML = "";
+    var evs = byDate(selected);
+    if (!evs.length) {
+      var p = el("p", "empty", "Niets gepland. Een vrije dag.");
+      ul.replaceWith(p); p.id = "dayList";
+      return;
+    }
+    if (ul.tagName !== "UL") { /* restore list element */ }
+    evs.forEach(function (e) {
+      var li = el("li", "item" + (isDone(e, selected) ? " done" : ""));
+      li.style.setProperty("--cc", "var(--c" + e.cat + ")");
+      var cb = el("input", "check"); cb.type = "checkbox"; cb.checked = isDone(e, selected);
+      cb.id = "chk-" + e.id;
+      cb.setAttribute("aria-label", "Afgerond: " + e.title);
+      cb.addEventListener("change", function () { setDone(e, selected, cb.checked); save(); renderAll(); });
+      var t = el("button", "t"); t.type = "button";
+      t.appendChild(el("b", "", e.title));
+      t.appendChild(el("small", "", (e.time ? e.time + " · " : "") + CATS[e.cat].name + (isRep(e) ? " · " + REPEATS[e.repeat] : "")));
+      t.addEventListener("click", function () { openDlg(e); });
+      li.appendChild(cb); li.appendChild(t);
+      ul.appendChild(li);
+    });
+  }
+
+  function ensureList() {
+    var cur = $("dayList");
+    if (cur.tagName !== "UL") {
+      var ul = document.createElement("ul"); ul.className = "list"; ul.id = "dayList";
+      cur.replaceWith(ul);
+    }
+  }
+
+  /* Dutch holidays: computed per year, fixed and not editable */
+  var holCache = {};
+  function easterDate(y) {
+    var a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4;
+    var f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+    var h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4;
+    var l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+    var mo = Math.floor((h + l - 7 * m + 114) / 31), da = ((h + l - 7 * m + 114) % 31) + 1;
+    return new Date(y, mo - 1, da);
+  }
+  function holidaysOfYear(y) {
+    if (holCache[y]) return holCache[y];
+    var map = {};
+    function add(date, name, kind) { var k = iso(date); (map[k] = map[k] || []).push({ name: name, kind: kind }); }
+    function dd(m, d) { return new Date(y, m - 1, d); }
+    function nth(m, wd, n) { var f = new Date(y, m - 1, 1); return new Date(y, m - 1, 1 + ((wd - f.getDay() + 7) % 7) + (n - 1) * 7); }
+    function lastSun(m) { var l = new Date(y, m, 0); return new Date(y, m - 1, l.getDate() - l.getDay()); }
+    var e = easterDate(y);
+    function ed(n) { return new Date(e.getFullYear(), e.getMonth(), e.getDate() + n); }
+    add(dd(1, 1), "Nieuwjaarsdag", "official");
+    add(ed(-2), "Goede Vrijdag", "official");
+    add(e, "Eerste Paasdag", "official");
+    add(ed(1), "Tweede Paasdag", "official");
+    if (y >= 2014) { var kd = dd(4, 27); if (kd.getDay() === 0) kd = dd(4, 26); add(kd, "Koningsdag", "official"); }
+    else if (y >= 1980) { var qd = dd(4, 30); if (qd.getDay() === 0) qd = dd(4, 29); add(qd, "Koninginnedag", "official"); }
+    add(dd(5, 5), "Bevrijdingsdag", "official");
+    add(ed(39), "Hemelvaartsdag", "official");
+    add(ed(49), "Eerste Pinksterdag", "official");
+    add(ed(50), "Tweede Pinksterdag", "official");
+    add(dd(12, 25), "Eerste Kerstdag", "official");
+    add(dd(12, 26), "Tweede Kerstdag", "official");
+    add(dd(2, 14), "Valentijnsdag", "extra");
+    add(lastSun(3), "Begin zomertijd", "extra");
+    add(dd(5, 4), "Dodenherdenking", "extra");
+    add(nth(5, 0, 2), "Moederdag", "extra");
+    add(nth(6, 0, 3), "Vaderdag", "extra");
+    add(nth(9, 2, 3), "Prinsjesdag", "extra");
+    add(lastSun(10), "Einde zomertijd", "extra");
+    add(dd(12, 5), "Sinterklaasavond", "extra");
+    add(dd(12, 31), "Oudejaarsavond", "extra");
+    holCache[y] = map;
+    return map;
+  }
+  function holidayOn(di) {
+    var list = holidaysOfYear(+di.slice(0, 4))[di] || [];
+    return list.filter(function (h) { return h.kind === "official" ? settings.holidays : settings.extras; });
+  }
+
+  function isoFromNum(n) { return new Date(n * 864e5).toISOString().slice(0, 10); }
+  function periodHas(pr, di) {
+    if (di < pr.start) return false;
+    var r = pr.repeat || "none";
+    if (r === "none") return di <= pr.end;
+    var dur = Math.max(1, dayNum(pr.end) - dayNum(pr.start) + 1);
+    var n = dayNum(di), occ = null;
+    if (r === "weekly" || r === "biweekly") {
+      var step = r === "weekly" ? 7 : 14;
+      var mod = (n - dayNum(pr.start)) % step;
+      if (mod >= dur) return false;
+      occ = isoFromNum(n - mod);
+    } else {
+      var a = pr.start.split("-"), b = di.split("-");
+      var sy = +a[0], sm = +a[1] - 1, sd = +a[2], by = +b[0], bm = +b[1] - 1;
+      var maxK = r === "monthly" ? (by - sy) * 12 + (bm - sm) : by - sy;
+      for (var k = maxK; k >= 0 && k >= maxK - 2; k--) {
+        var y = sy, m = sm;
+        if (r === "monthly") { y = sy + Math.floor((sm + k) / 12); m = (sm + k) % 12; } else { y = sy + k; }
+        var dimM = new Date(y, m + 1, 0).getDate();
+        var st = y + "-" + pad(m + 1) + "-" + pad(Math.min(sd, dimM));
+        var n0 = dayNum(st);
+        if (n >= n0 && n < n0 + dur) { occ = st; break; }
+      }
+      if (!occ) return false;
+    }
+    return !pr.until || occ <= pr.until;
+  }
+  function periodEff(di) {
+    for (var i = periods.length - 1; i >= 0; i--) {
+      if (periodHas(periods[i], di)) {
+        var t = typeById(periods[i].type);
+        if (t) return { type: t, label: periods[i].name || t.name, from: "period" };
+      }
+    }
+    return null;
+  }
+  function effective(di) {
+    var m = marks[di];
+    if (m === "none") return null;
+    if (m) { var t = typeById(m); if (t) return { type: t, label: t.name, from: "mark" }; }
+    return periodEff(di);
+  }
+
+  function renderLegend() {
+    var L = $("legend"); L.innerHTML = "";
+    var g1 = el("div", "lgrp"); g1.appendChild(el("b", "", "Categorieën"));
+    CATS.forEach(function (c) {
+      var sp = el("span"); sp.style.setProperty("--cc", "var(--c" + c.id + ")");
+      sp.appendChild(el("i")); sp.appendChild(document.createTextNode(c.name)); g1.appendChild(sp);
+    });
+    L.appendChild(g1);
+    var g2 = el("div", "lgrp"); g2.appendChild(el("b", "", "Dagen"));
+    dayTypes.forEach(function (t) {
+      var sp = el("span"); sp.style.setProperty("--cc", t.color);
+      sp.appendChild(el("i")); sp.appendChild(document.createTextNode(t.name)); g2.appendChild(sp);
+    });
+    L.appendChild(g2);
+    if (settings.holidays || settings.extras) {
+      var g3 = el("div", "lgrp"); g3.appendChild(el("b", "", "Vast (niet aanpasbaar)"));
+      if (settings.holidays) { var a = el("span", "k-off"); a.appendChild(el("i")); a.appendChild(document.createTextNode("Feestdag")); g3.appendChild(a); }
+      if (settings.extras) { var x = el("span", "k-x"); x.appendChild(el("i")); x.appendChild(document.createTextNode("Bekende dag")); g3.appendChild(x); }
+      L.appendChild(g3);
+    }
+  }
+  function renderTypes() {
+    var r = $("typesRow"); r.innerHTML = "";
+    var ef = effective(selected);
+    dayTypes.forEach(function (t) {
+      var on = !!ef && ef.type.id === t.id;
+      var b = el("button", "tpill" + (on ? " on" : ""));
+      b.type = "button"; b.style.setProperty("--cc", t.color);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.appendChild(el("i")); b.appendChild(document.createTextNode(t.name));
+      b.addEventListener("click", function () {
+        if (marks[selected] === t.id) delete marks[selected];
+        else if (on) marks[selected] = "none";
+        else marks[selected] = t.id;
+        save(); renderAll();
+      });
+      r.appendChild(b);
+    });
+    if (ef) {
+      var none = el("button", "tpill", "Geen kleur"); none.type = "button";
+      none.addEventListener("click", function () {
+        if (periodEff(selected)) marks[selected] = "none"; else delete marks[selected];
+        save(); renderAll();
+      });
+      r.appendChild(none);
+    }
+    var ed = el("button", "tpill edit", "Aanpassen"); ed.type = "button";
+    ed.addEventListener("click", openTypes);
+    r.appendChild(ed);
+    if (ef && ef.from === "period") r.appendChild(el("span", "thint", "Deze kleur komt uit een periode."));
+  }
+
+  function fmtShort(d) { return parse(d).toLocaleDateString("nl-NL", { day: "numeric", month: "short" }); }
+  function renderPeriods() {
+    var ul = $("periodList"); ul.innerHTML = "";
+    $("periodEmpty").hidden = periods.length > 0;
+    ul.hidden = periods.length === 0;
+    periods.forEach(function (pr) {
+      var t = typeById(pr.type); if (!t) return;
+      var li = el("li", "item"); li.style.setProperty("--cc", t.color);
+      var btn = el("button", "t"); btn.type = "button";
+      btn.appendChild(el("b", "", pr.name || t.name));
+      var range = pr.start === pr.end ? fmtShort(pr.start) : fmtShort(pr.start) + " – " + fmtShort(pr.end);
+      var rp = REPEATS[pr.repeat || "none"];
+      btn.appendChild(el("small", "", range + (rp ? " · " + rp : "") + " · " + t.name));
+      btn.addEventListener("click", function () { openPeriod(pr); });
+      li.appendChild(btn); ul.appendChild(li);
+    });
+  }
+
+  /* period dialog */
+  var pdlg = $("dlgPeriod"), pEditing = null;
+  function togglePUntil() { $("pUntilWrap").hidden = $("pRepeat").value === "none"; }
+  function openPeriod(pr, dateIso) {
+    if (!dayTypes.length) { openTypes(); return; }
+    pEditing = pr || null;
+    $("pTitle").textContent = pr ? "Periode aanpassen" : "Periode kleuren";
+    var sel = $("pType"); sel.innerHTML = "";
+    dayTypes.forEach(function (t) { var o = el("option", "", t.name); o.value = t.id; sel.appendChild(o); });
+    sel.value = pr && typeById(pr.type) ? pr.type : dayTypes[0].id;
+    $("pName").value = pr ? (pr.name || "") : "";
+    $("pStart").value = pr ? pr.start : (dateIso || selected);
+    $("pEnd").value = pr ? pr.end : (dateIso || selected);
+    $("pRepeat").value = pr ? (pr.repeat || "none") : "none";
+    $("pUntil").value = pr ? (pr.until || "") : "";
+    togglePUntil();
+    $("pDelete").style.visibility = pr ? "visible" : "hidden";
+    if (pdlg.showModal) pdlg.showModal(); else pdlg.setAttribute("open", "");
+  }
+  function closeP() { if (pdlg.close) pdlg.close(); else pdlg.removeAttribute("open"); }
+  $("pRepeat").addEventListener("change", togglePUntil);
+  $("pStart").addEventListener("change", function () { if ($("pEnd").value < $("pStart").value) $("pEnd").value = $("pStart").value; });
+  $("pCancel").addEventListener("click", closeP);
+  $("pDelete").addEventListener("click", function () {
+    if (!pEditing) return;
+    periods = periods.filter(function (x) { return x.id !== pEditing.id; });
+    save(); closeP(); renderAll();
+  });
+  $("pForm").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var st = $("pStart").value, en = $("pEnd").value;
+    if (!st) return;
+    if (!en || en < st) en = st;
+    var rpt = $("pRepeat").value, until = $("pUntil").value;
+    if (rpt === "none" || (until && until < st)) until = "";
+    var data = { name: $("pName").value.trim(), type: $("pType").value, start: st, end: en, repeat: rpt, until: until };
+    if (pEditing) { for (var k in data) pEditing[k] = data[k]; }
+    else { data.id = uid(); periods.push(data); }
+    var d = parse(st); view = { y: d.getFullYear(), m: d.getMonth() }; selected = st;
+    save(); closeP(); renderAll();
+  });
+  $("addPeriod").addEventListener("click", function () { openPeriod(null, selected); });
+
+  /* menu */
+  var menuBtn = $("menuBtn"), menu = $("menu");
+  function closeMenu() { menu.hidden = true; menuBtn.setAttribute("aria-expanded", "false"); }
+  menuBtn.addEventListener("click", function (ev) {
+    ev.stopPropagation();
+    var opening = menu.hidden;
+    $("mClear").hidden = !events.some(function (e) { return e.sample; });
+    menu.hidden = !opening;
+    menuBtn.setAttribute("aria-expanded", opening ? "true" : "false");
+  });
+  document.addEventListener("click", function (ev) { if (!menu.hidden && !menu.contains(ev.target)) closeMenu(); });
+  document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") closeMenu(); });
+  $("mPeriod").addEventListener("click", function () { closeMenu(); openPeriod(null, selected); });
+  $("mTypes").addEventListener("click", function () { closeMenu(); openTypes(); });
+  var sdlg = $("dlgSettings");
+  $("mSettings").addEventListener("click", function () {
+    closeMenu();
+    $("sHol").checked = settings.holidays; $("sExtra").checked = settings.extras; $("sLook").value = settings.look;
+    if (sdlg.showModal) sdlg.showModal(); else sdlg.setAttribute("open", "");
+  });
+  $("sHol").addEventListener("change", function () { settings.holidays = $("sHol").checked; save(); renderAll(); });
+  $("sExtra").addEventListener("change", function () { settings.extras = $("sExtra").checked; save(); renderAll(); });
+  $("sLook").addEventListener("change", function () { settings.look = $("sLook").value; save(); renderAll(); });
+  $("sDone").addEventListener("click", function () { if (sdlg.close) sdlg.close(); else sdlg.removeAttribute("open"); });
+  $("mClear").addEventListener("click", function () {
+    closeMenu();
+    events = events.filter(function (e) { return !e.sample; }); save(); renderAll();
+  });
+
+  /* day types dialog */
+  var tdlg = $("dlgTypes"), work = [];
+  var PALETTE = ["#1f9d7a", "#d6455d", "#d98a1c", "#3b6fd4", "#8b5cf6", "#0ea5b7", "#7b6f64", "#e2502b"];
+  function openTypes() {
+    work = JSON.parse(JSON.stringify(dayTypes));
+    drawRows();
+    if (tdlg.showModal) tdlg.showModal(); else tdlg.setAttribute("open", "");
+  }
+  function drawRows() {
+    var box = $("typeRows"); box.innerHTML = "";
+    work.forEach(function (t, i) {
+      var row = el("div", "trow");
+      var c = el("input"); c.type = "color"; c.id = "tc" + i; c.value = t.color;
+      c.setAttribute("aria-label", "Kleur van " + (t.name || "nieuwe soort"));
+      c.addEventListener("input", function () { t.color = c.value; });
+      var n = el("input"); n.type = "text"; n.id = "tn" + i; n.maxLength = 24; n.value = t.name; n.placeholder = "Naam, bijvoorbeeld Vrij";
+      n.setAttribute("aria-label", "Naam van soort " + (i + 1));
+      n.addEventListener("input", function () { t.name = n.value; });
+      var d = el("button", "btn danger", "Verwijderen"); d.type = "button";
+      d.addEventListener("click", function () { work.splice(i, 1); drawRows(); });
+      row.appendChild(c); row.appendChild(n); row.appendChild(d);
+      box.appendChild(row);
+    });
+    $("tAdd").disabled = work.length >= 12;
+  }
+  $("tAdd").addEventListener("click", function () {
+    if (work.length >= 12) return;
+    work.push({ id: "t" + uid(), name: "", color: PALETTE[work.length % PALETTE.length] });
+    drawRows();
+    var last = $("tn" + (work.length - 1)); if (last) last.focus();
+  });
+  $("tCancel").addEventListener("click", function () { tdlg.close ? tdlg.close() : tdlg.removeAttribute("open"); });
+  $("tDone").addEventListener("click", function () {
+    dayTypes = work.map(function (t) { return { id: t.id, name: (t.name || "").trim() || "Dag", color: t.color }; });
+    Object.keys(marks).forEach(function (k) { if (marks[k] !== "none" && !typeById(marks[k])) delete marks[k]; });
+    periods = periods.filter(function (pr) { return !!typeById(pr.type); });
+    save(); tdlg.close ? tdlg.close() : tdlg.removeAttribute("open"); renderAll();
+  });
+
+  function renderAll() { document.documentElement.setAttribute("data-look", settings.look === "klassiek" ? "klassiek" : "chique"); renderLegend(); renderTypes(); renderPeriods(); ensureList(); renderGrid(); renderDay(); $("banner").hidden = !events.some(function (e) { return e.sample; }); }
+
+  /* legend + dialog categories */
+  $("cats").innerHTML = CATS.map(function (c) {
+    return '<span style="--cc:var(--c' + c.id + ')"><input type="radio" name="cat" id="cat' + c.id + '" value="' + c.id + '"><label for="cat' + c.id + '"><i></i>' + c.name + "</label></span>";
+  }).join("");
+
+  /* dialog */
+  var dlg = $("dlg"), editing = null;
+  function openDlg(e, dateIso) {
+    editing = e || null;
+    $("dlgTitle").textContent = e ? "Item aanpassen" : "Nieuw item";
+    $("fTitle").value = e ? e.title : "";
+    $("fDate").value = e ? e.date : (dateIso || selected);
+    $("fTime").value = e ? (e.time || "") : "";
+    $("fRepeat").value = e ? (e.repeat || "none") : "none";
+    $("fUntil").value = e ? (e.until || "") : "";
+    toggleUntil();
+    document.getElementById("cat" + (e ? e.cat : 0)).checked = true;
+    $("fDelete").style.visibility = e ? "visible" : "hidden";
+    if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", "");
+    setTimeout(function () { $("fTitle").focus(); }, 0);
+  }
+  function closeDlg() { if (dlg.close) dlg.close(); else dlg.removeAttribute("open"); }
+
+  $("form").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var title = $("fTitle").value.trim();
+    if (!title || !$("fDate").value) return;
+    var cat = +(document.querySelector('input[name="cat"]:checked') || { value: 0 }).value;
+    var rpt = $("fRepeat").value, until = $("fUntil").value;
+    if (rpt === "none" || (until && until < $("fDate").value)) until = "";
+    if (editing) {
+      editing.title = title; editing.date = $("fDate").value; editing.time = $("fTime").value; editing.cat = cat; editing.repeat = rpt; editing.until = until; delete editing.sample;
+    } else {
+      events.push({ id: uid(), title: title, date: $("fDate").value, time: $("fTime").value, cat: cat, done: false, repeat: rpt, until: until });
+    }
+    var d = parse($("fDate").value);
+    selected = $("fDate").value; view = { y: d.getFullYear(), m: d.getMonth() };
+    save(); closeDlg(); renderAll();
+  });
+  function toggleUntil() { $("untilWrap").hidden = $("fRepeat").value === "none"; }
+  $("fRepeat").addEventListener("change", toggleUntil);
+  $("fCancel").addEventListener("click", closeDlg);
+  $("fDelete").addEventListener("click", function () {
+    if (!editing) return;
+    events = events.filter(function (e) { return e.id !== editing.id; });
+    save(); closeDlg(); renderAll();
+  });
+
+  /* navigation */
+  function go(delta) { var d = new Date(view.y, view.m + delta, 1); view = { y: d.getFullYear(), m: d.getMonth() }; renderAll(); }
+  $("prev").addEventListener("click", function () { go(-1); });
+  $("next").addEventListener("click", function () { go(1); });
+  $("today").addEventListener("click", function () { view = { y: now.getFullYear(), m: now.getMonth() }; selected = todayIso; renderAll(); });
+  $("newTop").addEventListener("click", function () { openDlg(null, selected); });
+  $("addDay").addEventListener("click", function () { openDlg(null, selected); });
+  $("clearSamples").addEventListener("click", function () {
+    events = events.filter(function (e) { return !e.sample; }); save(); renderAll();
+  });
+
+  $("grid").addEventListener("click", function (ev) {
+    var b = ev.target.closest(".day"); if (!b) return;
+    selected = b.dataset.date;
+    var d = parse(selected);
+    if (d.getMonth() !== view.m) view = { y: d.getFullYear(), m: d.getMonth() };
+    renderAll();
+  });
+  $("grid").addEventListener("dblclick", function (ev) {
+    var b = ev.target.closest(".day"); if (!b) return;
+    openDlg(null, b.dataset.date);
+  });
+  document.addEventListener("keydown", function (ev) {
+    if (dlg.open || /INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || "")) return;
+    if (ev.key === "ArrowLeft" && ev.shiftKey) go(-1);
+    if (ev.key === "ArrowRight" && ev.shiftKey) go(1);
+  });
+
+  renderAll();
+  initSync();
+})();
+</script>
+</body>
+</html>
